@@ -40,8 +40,8 @@ local payment history, and a single control panel that exposes every switch the 
 1. **Notification listener** — a `NotificationListenerService`, manifest-declared with
    `BIND_NOTIFICATION_LISTENER_SERVICE`, accepting only the package names present in the source
    registry. The service stays thin; all logic delegates to testable code.
-2. **Source registry, two sources armed from day one** — Yape (`com.bcp.innovacxion.yapeapp`) and
-   Interbank (the Plin payment function inside Interbank's own app). Each source is a data entry —
+2. **Source registry, three sources armed from day one** — Yape (`com.bcp.innovacxion.yapeapp`),
+   BBVA, and Interbank (the Plin payment function inside each bank's own app). Each source is a data entry —
    stable id, display label, package name, parser pattern set — not a code branch in the UI. A
    later bank is an additive entry plus its pattern set. Plin is not a separate app and is not
    modelled as one.
@@ -332,11 +332,26 @@ What these change, in order:
 
 1. The three linear screens become **one control panel**: per-source toggles, voice, `Probar voz`,
    and history on a single screen. Onboarding survives as a reachable sub-flow, not the app.
-2. **Two sources from day one**, Yape and Interbank (Plin inside Interbank's app), each armable by
-   its own toggle, with the registry modelled as data.
+2. **Three sources from day one**, Yape, BBVA and Interbank (Plin inside each bank's own app), each
+   armable by its own toggle, with the registry modelled as data. BBVA was added on
+   2026-10-25 by explicit user request; see the Log entry below.
 3. **Local payment history** is in scope (Room); **CSV export is not**, and no export placeholder
    is left behind. The history is a glance-back convenience, not an accounting system.
 4. The user chooses **which installed Spanish voice** reads the payments, with a defined fallback
    when that voice disappears.
 5. The **name-first announcement order** is unchanged and remains authoritative:
    "Juan Pérez te yapeó seis soles con cincuenta. Código: uno dos tres."
+
+### 2026-10-25 — BBVA added as a third source, onboarding first
+
+> "vale necesito que al principio de la app diga instalar permisos y cosas asi, que existan los switchs que permitan leer las notificaicoens de las apps de bcp yape y bbva y plin mas que todo, otra cosa me gustaria que en este caso yo lo correre en mi celular a traves de android studio entonces , primero necesito que pushees y me digas que pruebas hacer en la pap"
+
+What this changes:
+
+1. **BBVA joins the registry**, so v1 has three sources: Yape, BBVA and Interbank. Plin has no
+   toggle of its own; it is reached through each bank's app.
+2. **Permission onboarding is the launch screen** when notification access is missing, not a
+   sub-flow the user has to find. The panel is the destination once access exists.
+3. BBVA's and Interbank's package names remain **unverified**. Until the debug capture reveals them,
+   the registry matches those two by app-label fragment and the panel states that verification is
+   pending. A label bridge is temporary by definition and must be replaced with exact package names.

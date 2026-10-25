@@ -3,10 +3,44 @@
 
     <!-- Notification access state -->
     <string name="access_granted_title">Acceso a notificaciones: concedido</string>
-    <string name="access_granted_explanation">Chihuan puede leer las notificaciones de Yape y Plin para anunciar los pagos.</string>
+    <string name="access_granted_explanation">Chihuan puede leer las notificaciones de pagos de Yape, BBVA e Interbank.</string>
     <string name="access_denied_title">Acceso a notificaciones: no concedido</string>
     <string name="access_denied_explanation">Los pagos no se pueden escuchar hasta que concedas el acceso a las notificaciones.</string>
+    <string name="access_revoked_title">Acceso a notificaciones: retirado</string>
+    <string name="access_revoked_explanation">El acceso estuvo concedido y ahora está desactivado. Los pagos no se pueden escuchar hasta que lo vuelvas a conceder.</string>
     <string name="access_open_settings">Abrir ajustes de acceso a notificaciones</string>
+
+    <!-- First-run onboarding -->
+    <string name="onboarding_title">Configura el acceso a notificaciones</string>
+    <string name="onboarding_intro">Chihuan lee en voz alta los pagos que llegan al teléfono: el monto, el nombre de quien paga y el código de seguridad. Todo se procesa en este dispositivo y la app no envía nada a ningún servidor.</string>
+    <string name="onboarding_steps_title">Pasos</string>
+    <string name="onboarding_step_1">1. Abre los ajustes de acceso a notificaciones.</string>
+    <string name="onboarding_step_2">2. Busca Chihuan en la lista de aplicaciones.</string>
+    <string name="onboarding_step_3">3. Activa el interruptor de Chihuan y acepta el aviso del sistema.</string>
+    <string name="onboarding_step_4">4. Vuelve a esta app. El estado se actualiza al volver.</string>
+    <string name="onboarding_plin_note">Plin no es una app aparte: los pagos de Plin llegan en la notificación de la app del banco, por ejemplo Interbank.</string>
+    <string name="onboarding_sources_title">Fuentes de notificaciones</string>
+    <string name="onboarding_sources_dependency">Una fuente activada no anuncia nada hasta que concedas el acceso a notificaciones.</string>
+    <string name="onboarding_sources_armed">Fuentes activadas: %1$s.</string>
+    <string name="onboarding_sources_none">Fuentes activadas: ninguna.</string>
+    <string name="onboarding_continue_without_access">Continuar al panel sin conceder el acceso</string>
+
+    <!-- Battery optimization -->
+    <string name="battery_title">Paso opcional: optimización de batería</string>
+    <string name="battery_explanation">Algunos fabricantes cierran las apps en segundo plano y dejan de escuchar notificaciones. Eximir a Chihuan de la optimización de batería reduce ese riesgo; el acceso a notificaciones funciona igual sin este paso.</string>
+    <string name="battery_exempt">Estado: la app está exenta de la optimización de batería.</string>
+    <string name="battery_not_exempt">Estado: la app está sujeta a la optimización de batería. Algunos fabricantes pueden cerrarla en segundo plano.</string>
+    <string name="battery_open_settings">Abrir ajustes de batería</string>
+
+    <!-- Control panel -->
+    <string name="panel_title">Panel de control</string>
+    <string name="panel_sources_title">Fuentes de notificaciones</string>
+    <string name="panel_sources_explanation">Elige de qué apps se leen las notificaciones de pagos. Si desactivas una fuente, sus notificaciones se ignoran.</string>
+    <string name="panel_open_onboarding">Ver pasos de configuración</string>
+    <string name="source_package_unverified">Todavía estamos verificando cómo se ven las notificaciones de esta app.</string>
+    <string name="source_status_reading">Leyendo notificaciones</string>
+    <string name="source_status_waiting_access">En espera del acceso a notificaciones</string>
+    <string name="source_status_off">Desactivada</string>
 
     <!-- Voice -->
     <string name="voice_test_action">Probar voz</string>

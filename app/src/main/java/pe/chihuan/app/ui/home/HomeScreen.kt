@@ -1,196 +1,112 @@
 package pe.chihuan.app.ui.home
 
-import android.os.Build
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import java.util.Locale
-import pe.chihuan.app.R
+import pe.chihuan.app.core.source.SourceId
+import pe.chihuan.app.core.source.SourceRegistry
+import pe.chihuan.app.permission.NotificationAccessState
 import pe.chihuan.app.speech.TtsStatus
+import pe.chihuan.app.ui.common.SourceRow
+import pe.chihuan.app.ui.onboarding.OnboardingScreen
+import pe.chihuan.app.ui.panel.PanelScreen
 import pe.chihuan.app.ui.theme.ChihuanTheme
 
+/** The two screens of the app. There is no navigation library: one Activity, two states. */
+enum class HomeDestination {
+    ONBOARDING,
+    PANEL,
+}
+
 /**
- * Single setup screen of the first slice: notification access state, the action that opens the
- * system access screen, and the voice test.
+ * Root screen: shows the onboarding while notification access is missing and the panel once it is
+ * granted, and lets the user move between them at any time.
  *
- * Copy is neutral professional Spanish because the app ships to Peruvian users.
+ * Rules this shell enforces:
+ * - a fresh install with no access starts on the onboarding;
+ * - the onboarding can always be left for the panel, so an incomplete setup never traps the user;
+ * - the onboarding stays reachable from the panel afterwards;
+ * - a grant observed while the onboarding is open advances to the panel exactly once, without
+ *   stopping the user from reopening the onboarding later.
+ *
+ * All state is handed in; this composable only decides which screen is visible.
  */
 @Composable
 fun HomeScreen(
-    notificationAccessGranted: Boolean,
+    notificationAccessState: NotificationAccessState,
+    batteryOptimizationExempt: Boolean,
     ttsStatus: TtsStatus,
+    sources: List<SourceRow>,
     onOpenNotificationAccessSettings: () -> Unit,
+    onOpenBatteryOptimizationSettings: () -> Unit,
     onTestVoice: () -> Unit,
+    onSourceArmedChange: (SourceId, Boolean) -> Unit,
     modifier: Modifier = Modifier,
-    showRestrictedSettingsGuidance: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU,
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        Text(
-            text = stringResource(R.string.app_name),
-            style = MaterialTheme.typography.headlineMedium,
-        )
+    val accessGranted = notificationAccessState == NotificationAccessState.GRANTED
 
-        NotificationAccessCard(
-            granted = notificationAccessGranted,
+    var destination by rememberSaveable {
+        mutableStateOf(if (accessGranted) HomeDestination.PANEL else HomeDestination.ONBOARDING)
+    }
+    var previouslyGranted by rememberSaveable { mutableStateOf(accessGranted) }
+
+    // Advance once when a grant is first observed; a later re-open of the onboarding is respected.
+    LaunchedEffect(accessGranted) {
+        if (accessGranted && !previouslyGranted) {
+            destination = HomeDestination.PANEL
+        }
+        previouslyGranted = accessGranted
+    }
+
+    BackHandler(enabled = destination == HomeDestination.ONBOARDING) {
+        destination = HomeDestination.PANEL
+    }
+
+    when (destination) {
+        HomeDestination.ONBOARDING -> OnboardingScreen(
+            notificationAccessState = notificationAccessState,
+            batteryOptimizationExempt = batteryOptimizationExempt,
+            sources = sources,
             onOpenNotificationAccessSettings = onOpenNotificationAccessSettings,
+            onOpenBatteryOptimizationSettings = onOpenBatteryOptimizationSettings,
+            onContinueToPanel = { destination = HomeDestination.PANEL },
+            modifier = modifier,
         )
 
-        VoiceSection(ttsStatus = ttsStatus, onTestVoice = onTestVoice)
-
-        if (showRestrictedSettingsGuidance) {
-            GuidanceCard(
-                title = stringResource(R.string.restricted_settings_title),
-                explanation = stringResource(R.string.restricted_settings_explanation),
-            )
-        }
-    }
-}
-
-@Composable
-private fun NotificationAccessCard(
-    granted: Boolean,
-    onOpenNotificationAccessSettings: () -> Unit,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (granted) {
-                MaterialTheme.colorScheme.secondaryContainer
-            } else {
-                MaterialTheme.colorScheme.errorContainer
-            },
-        ),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                text = stringResource(
-                    if (granted) R.string.access_granted_title else R.string.access_denied_title,
-                ),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Text(
-                text = stringResource(
-                    if (granted) {
-                        R.string.access_granted_explanation
-                    } else {
-                        R.string.access_denied_explanation
-                    },
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-
-            val label = stringResource(R.string.access_open_settings)
-            if (granted) {
-                OutlinedButton(onClick = onOpenNotificationAccessSettings) { Text(label) }
-            } else {
-                Button(onClick = onOpenNotificationAccessSettings) { Text(label) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun VoiceSection(ttsStatus: TtsStatus, onTestVoice: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(
-            onClick = onTestVoice,
-            enabled = ttsStatus is TtsStatus.Ready,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(R.string.voice_test_action))
-        }
-        Text(
-            text = voiceStatusText(ttsStatus),
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (ttsStatus is TtsStatus.Unavailable) {
-                MaterialTheme.colorScheme.error
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
-        )
-        Text(
-            text = stringResource(R.string.voice_test_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun GuidanceCard(title: String, explanation: String) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(text = title, style = MaterialTheme.typography.titleSmall)
-            Text(text = explanation, style = MaterialTheme.typography.bodySmall)
-        }
-    }
-}
-
-@Composable
-private fun voiceStatusText(status: TtsStatus): String = when (status) {
-    TtsStatus.Initializing -> stringResource(R.string.voice_status_initializing)
-    is TtsStatus.Ready -> stringResource(
-        R.string.voice_status_ready,
-        status.locale.toLanguageTag(),
-    )
-
-    is TtsStatus.Unavailable -> stringResource(
-        when (status.reason) {
-            TtsStatus.Reason.ENGINE_INIT_FAILED -> R.string.voice_status_engine_unavailable
-            TtsStatus.Reason.NO_SPANISH_LANGUAGE -> R.string.voice_status_no_spanish_voice
-            TtsStatus.Reason.LANGUAGE_DATA_MISSING -> R.string.voice_status_missing_language_data
-        },
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun HomeScreenAccessDeniedPreview() {
-    ChihuanTheme {
-        HomeScreen(
-            notificationAccessGranted = false,
-            ttsStatus = TtsStatus.Ready(Locale.forLanguageTag("es-PE")),
-            onOpenNotificationAccessSettings = {},
-            onTestVoice = {},
+        HomeDestination.PANEL -> PanelScreen(
+            notificationAccessState = notificationAccessState,
+            batteryOptimizationExempt = batteryOptimizationExempt,
+            ttsStatus = ttsStatus,
+            sources = sources,
+            onOpenNotificationAccessSettings = onOpenNotificationAccessSettings,
+            onOpenBatteryOptimizationSettings = onOpenBatteryOptimizationSettings,
+            onTestVoice = onTestVoice,
+            onSourceArmedChange = onSourceArmedChange,
+            onOpenOnboarding = { destination = HomeDestination.ONBOARDING },
+            modifier = modifier,
         )
     }
 }
 
 @Preview(showBackground = true)
 @Composable
-private fun HomeScreenAccessGrantedPreview() {
+private fun HomeScreenFreshInstallPreview() {
     ChihuanTheme {
         HomeScreen(
-            notificationAccessGranted = true,
-            ttsStatus = TtsStatus.Unavailable(TtsStatus.Reason.NO_SPANISH_LANGUAGE),
+            notificationAccessState = NotificationAccessState.DENIED,
+            batteryOptimizationExempt = false,
+            ttsStatus = TtsStatus.Initializing,
+            sources = SourceRegistry.entries.map { source -> SourceRow(source, armed = true) },
             onOpenNotificationAccessSettings = {},
+            onOpenBatteryOptimizationSettings = {},
             onTestVoice = {},
+            onSourceArmedChange = { _, _ -> },
         )
     }
 }

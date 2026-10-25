@@ -21,32 +21,33 @@ schema.
 
 #### Scenario: The panel renders one row per registry entry
 
-- **GIVEN** a registry containing exactly two entries, labelled `Yape` and `Interbank`
+- **GIVEN** a registry containing exactly three entries, labelled `Yape`, `BBVA` and `Interbank`
 - **WHEN** the control panel is displayed
-- **THEN** it shows exactly two source rows, in registry order, each with its own toggle
+- **THEN** it shows exactly three source rows, in registry order, each with its own toggle
 
-#### Scenario: A third source is added without touching panel logic
+#### Scenario: A fourth source is added without touching panel logic
 
-- **GIVEN** a registry extended with a third entry, id `demo-bank`, label `Banco Demo`, package `com.example.demo`, and its own pattern set
+- **GIVEN** a registry extended with a fourth entry, id `demo-bank`, label `Banco Demo`, package `com.example.demo`, and its own pattern set
 - **WHEN** the control panel is displayed
-- **THEN** a third source row labelled `Banco Demo` appears with its own toggle, and no panel, queue, or history code was edited to produce it
+- **THEN** a fourth source row labelled `Banco Demo` appears with its own toggle, and no panel, queue, or history code was edited to produce it
 
-### Requirement: v1 registers exactly two sources, Yape and Interbank
+### Requirement: v1 registers exactly three sources, Yape, BBVA and Interbank
 
-The registry SHALL contain exactly two entries in v1:
+The registry SHALL contain exactly three entries in v1:
 
 | Source id | Label | Package name |
 | --- | --- | --- |
 | `yape` | `Yape` | `com.bcp.innovacxion.yapeapp` |
-| `interbank` | `Interbank` | the Interbank app package, held as a single unverified constant (see the Interbank assumption requirement) |
+| `bbva` | `BBVA` | the BBVA app package, unverified and therefore not guessed |
+| `interbank` | `Interbank` | the Interbank app package, unverified and therefore not guessed |
 
 The `yape` entry MUST accept only the exact package string `com.bcp.innovacxion.yapeapp`, compared
 with exact equality — never a prefix or substring match.
 
-The `interbank` entry SHALL represent Plin payments received inside Interbank's own app. There
-MUST NOT be a separate source entry for Plin, and the panel MUST NOT show a toggle labelled
-`Plin`: Plin is a payment function inside Interbank's app, not an installable app, so a `Plin`
-toggle would be a control with no parser behind it.
+The `bbva` and `interbank` entries SHALL represent Plin payments received inside each bank's own
+app. There MUST NOT be a separate source entry for Plin, and the panel MUST NOT show a toggle
+labelled `Plin`: Plin is a payment function inside each bank's app, not an installable app, so a
+`Plin` toggle would be a control with no parser behind it.
 
 #### Scenario: The panel offers exactly the two real toggles
 
