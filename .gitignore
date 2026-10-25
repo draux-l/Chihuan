@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Local tooling state
+.engram/
+.atl/.skill-registry.cache.json
