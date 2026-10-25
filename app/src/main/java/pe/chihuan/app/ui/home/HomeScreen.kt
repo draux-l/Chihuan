@@ -48,6 +48,8 @@ fun HomeScreen(
     onTestVoice: () -> Unit,
     onSourceArmedChange: (SourceId, Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    showDebugActions: Boolean = false,
+    onSimulatePayment: () -> Unit = {},
 ) {
     val accessGranted = notificationAccessState == NotificationAccessState.GRANTED
 
@@ -90,6 +92,8 @@ fun HomeScreen(
             onSourceArmedChange = onSourceArmedChange,
             onOpenOnboarding = { destination = HomeDestination.ONBOARDING },
             modifier = modifier,
+            showDebugActions = showDebugActions,
+            onSimulatePayment = onSimulatePayment,
         )
     }
 }

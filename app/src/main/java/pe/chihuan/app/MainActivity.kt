@@ -2,6 +2,7 @@ package pe.chihuan.app
 
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.ApplicationInfo
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
@@ -15,11 +16,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import pe.chihuan.app.core.announce.AnnouncementComposer
+import pe.chihuan.app.core.parser.Parsed
 import pe.chihuan.app.core.source.SourceId
 import pe.chihuan.app.core.source.SourceRegistry
 import pe.chihuan.app.data.settings.AppSettings
+import pe.chihuan.app.listener.NotificationPipeline
 import pe.chihuan.app.permission.NotificationAccessState
 import pe.chihuan.app.permission.PermissionStateSource
+import pe.chihuan.app.speech.SpeechQueue
 import pe.chihuan.app.speech.TtsAnnouncer
 import pe.chihuan.app.speech.TtsStatus
 import pe.chihuan.app.ui.common.SourceRow
@@ -29,17 +34,22 @@ import pe.chihuan.app.ui.theme.ChihuanTheme
 /**
  * Single-activity host for the onboarding and the control panel.
  *
- * It owns the process-independent wiring (TTS engine, settings store, permission reader) and hands
- * observable values to [HomeScreen]. Permission and stored source state are re-read on every
- * foreground return, never cached from first launch, so returning from system settings always
- * shows the truth.
+ * The process-scoped collaborators (settings, speech engine, announcement queue, notification
+ * pipeline) live in [ChihuanApplication]; this Activity only reads them and renders their state, so
+ * speech keeps working after the Activity is destroyed and no second engine is ever created.
+ *
+ * Permission and stored source state are re-read on every foreground return, never cached from
+ * first launch, so returning from system settings always shows the truth.
  */
 class MainActivity : ComponentActivity() {
 
     private lateinit var announcer: TtsAnnouncer
+    private lateinit var speechQueue: SpeechQueue
+    private lateinit var pipeline: NotificationPipeline
     private lateinit var settings: AppSettings
     private lateinit var permissionState: PermissionStateSource
     private var settingsObserver: SharedPreferences.OnSharedPreferenceChangeListener? = null
+    private var showDebugActions = false
 
     private var notificationAccessState by mutableStateOf(NotificationAccessState.DENIED)
     private var batteryOptimizationExempt by mutableStateOf(false)
@@ -50,9 +60,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        settings = AppSettings(this)
+        val app = application as ChihuanApplication
+        settings = app.settings
+        announcer = app.ttsAnnouncer
+        speechQueue = app.speechQueue
+        pipeline = app.pipeline
+
         permissionState = PermissionStateSource(this, settings)
         startAnnouncer()
+        showDebugActions = isDebuggableBuild()
         refreshPermissionState()
         refreshSourceRows()
 
@@ -66,8 +82,10 @@ class MainActivity : ComponentActivity() {
                         sources = sourceRows,
                         onOpenNotificationAccessSettings = ::openNotificationAccessSettings,
                         onOpenBatteryOptimizationSettings = ::openBatteryOptimizationSettings,
-                        onTestVoice = { announcer.speak(SAMPLE_UTTERANCE) },
+                        onTestVoice = ::testVoice,
                         onSourceArmedChange = ::setSourceArmed,
+                        showDebugActions = showDebugActions,
+                        onSimulatePayment = pipeline::submitSamplePayment,
                         modifier = Modifier.padding(innerPadding),
                     )
                 }
@@ -95,16 +113,15 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        announcer.release()
+        // The engine is process-scoped and must outlive this Activity; only the UI callback goes away.
+        announcer.onStatusChanged = null
         super.onDestroy()
     }
 
     private fun startAnnouncer() {
-        val created = TtsAnnouncer(this)
-        created.onStatusChanged = { status -> ttsStatus = status }
-        created.initialize()
-        announcer = created
-        ttsStatus = created.status
+        announcer.onStatusChanged = { status -> ttsStatus = status }
+        announcer.initialize()
+        ttsStatus = announcer.status
     }
 
     private fun refreshPermissionState() {
@@ -128,6 +145,18 @@ class MainActivity : ComponentActivity() {
         settings.setSourceArmed(sourceId, armed)
         refreshSourceRows()
     }
+
+    /**
+     * `Probar voz` speaks the fixed sample through the same composer and queue as a real payment,
+     * ignoring the source toggles because it is an explicit user test.
+     */
+    private fun testVoice() {
+        val selection = settings.snapshot().contentSelection()
+        speechQueue.announce(AnnouncementComposer.compose(SAMPLE_PAYMENT, selection))
+    }
+
+    private fun isDebuggableBuild(): Boolean =
+        (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
     private fun openNotificationAccessSettings() {
         startSettingsScreen(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS, "notification access")
@@ -157,8 +186,11 @@ class MainActivity : ComponentActivity() {
     private companion object {
         const val LOG_TAG = "ChihuanMain"
 
-        /** Fixed sample for the voice test; announcement composition is later work. */
-        const val SAMPLE_UTTERANCE =
-            "Juan Pérez te yapeó seis soles con cincuenta. Código: uno dos tres."
+        /** Fixed sample for `Probar voz`; the voice test never depends on a real payment. */
+        val SAMPLE_PAYMENT: Parsed = Parsed(
+            amountCents = 650,
+            name = "Juan Pérez",
+            code = "123",
+        )
     }
 }

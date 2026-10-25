@@ -6,38 +6,64 @@ import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import pe.chihuan.app.ChihuanApplication
 import pe.chihuan.app.core.notification.NotificationExtras
 import pe.chihuan.app.core.notification.NotificationTextExtractor
 
 /**
- * Receives posted notifications and, in debug builds only, logs their raw text so real
- * notification wording can be captured from logcat and turned into parser fixtures.
+ * Receives posted notifications and hands each one to the process-wide
+ * [NotificationPipeline][pe.chihuan.app.listener.NotificationPipeline].
  *
- * This slice deliberately announces, parses and stores nothing: it is the capture seam the
- * parser work depends on. The extraction rule itself lives in [NotificationTextExtractor],
- * which is pure Kotlin and unit-tested on the JVM.
+ * The service stays thin: it reads the four text extras (a cheap bundle read) and returns
+ * immediately. Filtering, parsing, composition and speech run on the pipeline's own worker, so
+ * `onNotificationPosted` never blocks the system's delivery thread.
+ *
+ * In debug builds the raw text is also logged, unchanged, under the `ChihuanCapture` tag: that seam
+ * is how real Yape and bank wording gets captured from logcat and turned into parser fixtures.
+ * Release installs take no capture code path.
  */
 class ChihuanNotificationListener : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
-        val notification = sbn?.notification ?: return
-        // Capture exists only in debug builds; release installs take no capture code path.
-        if (!isDebugBuild()) return
+        if (sbn == null) return
+        val notification = sbn.notification ?: return
 
         try {
             val extras = readExtras(notification)
-            Log.d(
-                CAPTURE_TAG,
-                buildCaptureRecord(
+            logCaptureIfDebugBuild(sbn.packageName, extras)
+
+            val pipeline = (applicationContext as? ChihuanApplication)?.pipeline
+            if (pipeline == null) {
+                Log.w(LOG_TAG, "Pipeline unavailable; notification was not processed")
+                return
+            }
+
+            pipeline.submit(
+                IncomingNotification(
                     packageName = sbn.packageName,
+                    statusBarKey = sbn.key,
+                    postTimeMillis = sbn.postTime,
                     extras = extras,
-                    extracted = NotificationTextExtractor.extract(extras),
                 ),
             )
         } catch (throwable: Throwable) {
             // One unreadable notification must never take the listener down.
-            Log.w(LOG_TAG, "Notification extras could not be read: ${throwable.javaClass.simpleName}")
+            Log.w(LOG_TAG, "Notification could not be read: ${throwable.javaClass.simpleName}")
         }
+    }
+
+    /** Debug-only capture: logcat only, never storage, and it never alters processing. */
+    private fun logCaptureIfDebugBuild(packageName: String, extras: NotificationExtras) {
+        if (!isDebugBuild()) return
+
+        Log.d(
+            CAPTURE_TAG,
+            buildCaptureRecord(
+                packageName = packageName,
+                extras = extras,
+                extracted = NotificationTextExtractor.extract(extras),
+            ),
+        )
     }
 
     /**

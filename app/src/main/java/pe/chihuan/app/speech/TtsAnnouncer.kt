@@ -5,6 +5,8 @@ import android.media.AudioAttributes
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
+import android.speech.tts.Voice
+import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import java.util.Locale
 
@@ -33,23 +35,32 @@ sealed interface TtsStatus {
 }
 
 /**
- * Small wrapper around the platform [TextToSpeech] engine.
+ * Process-scoped wrapper around the single platform [TextToSpeech] engine.
  *
- * Responsibilities stop at the engine: locale selection, speech parameters, readiness reporting
- * and starting an utterance. Announcement composition and queueing belong to later work.
+ * There is exactly one instance per process, owned by
+ * [pe.chihuan.app.ChihuanApplication], so the listener service and the control panel share the same
+ * engine and the same platform queue. Nothing releases it: Android reclaims it with the process, and
+ * an explicitly released wrapper could never be used again while the Application outlives every
+ * Activity.
  *
- * Failure is reported through [status] and [onStatusChanged]; nothing here throws into the UI.
+ * Responsibilities stop at the engine: locale selection, speech parameters, readiness reporting and
+ * handing one utterance to the platform queue. Burst ordering, audio focus and call deferral live in
+ * [SpeechQueue].
+ *
+ * Failure is reported through [status] and [onStatusChanged]; nothing here throws into the caller.
  */
 class TtsAnnouncer(context: Context) {
 
     private val appContext: Context = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
     private var engine: TextToSpeech? = null
-    private var released = false
     private var utteranceCounter = 0
 
-    /** Invoked on the main thread whenever [status] changes. */
+    /** Invoked on the main thread whenever [status] changes. Replaced by the visible screen. */
     var onStatusChanged: ((TtsStatus) -> Unit)? = null
+
+    /** Invoked on the main thread when the engine finishes, fails or stops an utterance. */
+    var onUtteranceFinished: (() -> Unit)? = null
 
     var status: TtsStatus = TtsStatus.Initializing
         private set(value) {
@@ -59,7 +70,7 @@ class TtsAnnouncer(context: Context) {
 
     /** Starts the engine once. Safe to call repeatedly. */
     fun initialize() {
-        if (engine != null || released) return
+        if (engine != null) return
 
         engine = TextToSpeech(appContext) { initStatus ->
             mainHandler.post { handleInit(initStatus) }
@@ -67,34 +78,28 @@ class TtsAnnouncer(context: Context) {
     }
 
     /**
-     * Hands [text] to the engine for the current utterance. Returns false when the engine is not
-     * ready, in which case [status] already explains why.
+     * Hands [text] to the platform queue, which speaks it after every utterance already queued.
+     * Returns the utterance id, or null when the engine is not ready and nothing was queued.
      */
-    fun speak(text: String): Boolean {
+    fun speak(text: String): String? {
         val tts = engine
         val current = status
-        if (released || tts == null || current !is TtsStatus.Ready) {
+        if (tts == null || current !is TtsStatus.Ready) {
             Log.w(LOG_TAG, "Utterance skipped; engine status is $current")
-            return false
+            return null
         }
 
         val utteranceId = "chihuan-utterance-${utteranceCounter++}"
         val result = tts.speak(text, TextToSpeech.QUEUE_ADD, null, utteranceId)
-        return result == TextToSpeech.SUCCESS
-    }
-
-    /** Releases the native engine. The wrapper cannot be reused afterwards. */
-    fun release() {
-        released = true
-        onStatusChanged = null
-        engine?.stop()
-        engine?.shutdown()
-        engine = null
+        if (result != TextToSpeech.SUCCESS) {
+            Log.w(LOG_TAG, "The engine refused utterance $utteranceId")
+            return null
+        }
+        return utteranceId
     }
 
     private fun handleInit(initStatus: Int) {
         val tts = engine
-        if (released) return
         if (initStatus != TextToSpeech.SUCCESS || tts == null) {
             status = TtsStatus.Unavailable(TtsStatus.Reason.ENGINE_INIT_FAILED)
             return
@@ -108,6 +113,17 @@ class TtsAnnouncer(context: Context) {
         )
         tts.setSpeechRate(SPEECH_RATE)
         tts.setPitch(PITCH)
+        tts.setOnUtteranceProgressListener(progressListener)
+
+        val selectedVoice = selectVoice(tts)
+        if (selectedVoice != null) {
+            // `isLanguageAvailable` reports "supported" for a locale the engine can map, even when
+            // only a neighbouring variant has installed data. Selecting the actual Voice is the
+            // only way to know which locale will really speak.
+            tts.voice = selectedVoice
+            status = TtsStatus.Ready(selectedVoice.locale)
+            return
+        }
 
         val language = SPANISH_CANDIDATES.firstOrNull { candidate ->
             tts.isLanguageAvailable(candidate) >= TextToSpeech.LANG_AVAILABLE
@@ -122,7 +138,60 @@ class TtsAnnouncer(context: Context) {
             return
         }
 
-        status = TtsStatus.Ready(language)
+        // The engine accepted the request but may still synthesize with another variant, so the
+        // reported status is the language the engine actually settled on.
+        status = TtsStatus.Ready(tts.voice?.locale ?: language)
+    }
+
+    /**
+     * Picks the installed Spanish voice to use, preferring the requested locale order and then an
+     * offline voice over one that needs a network round trip.
+     */
+    private fun selectVoice(tts: TextToSpeech): Voice? {
+        val voices = try {
+            tts.voices
+        } catch (exception: RuntimeException) {
+            Log.w(LOG_TAG, "Installed voices could not be read: ${exception.javaClass.simpleName}")
+            null
+        } ?: return null
+
+        for (candidate in SPANISH_CANDIDATES) {
+            val sameLanguage = voices.filter { voice ->
+                voice.locale.language.equals(candidate.language, ignoreCase = true)
+            }
+            if (sameLanguage.isEmpty()) continue
+
+            val exact = sameLanguage.filter {
+                it.locale.country.equals(candidate.country, ignoreCase = true)
+            }
+            val pool = exact.ifEmpty { sameLanguage }
+            return pool.sortedWith(
+                compareBy<Voice> { it.isNetworkConnectionRequired }
+                    .thenByDescending { it.quality },
+            ).firstOrNull()
+        }
+        return null
+    }
+
+    /**
+     * Completion is reported once per utterance. A synthesis error is reported exactly like a
+     * completion so the queue advances; the same utterance is never re-spoken.
+     */
+    private fun notifyUtteranceFinished() {
+        mainHandler.post { onUtteranceFinished?.invoke() }
+    }
+
+    private val progressListener = object : UtteranceProgressListener() {
+        override fun onStart(utteranceId: String?) = Unit
+
+        override fun onDone(utteranceId: String?) = notifyUtteranceFinished()
+
+        @Deprecated("Deprecated by the platform; the two-argument overload carries the error code")
+        override fun onError(utteranceId: String?) = notifyUtteranceFinished()
+
+        override fun onError(utteranceId: String?, errorCode: Int) = notifyUtteranceFinished()
+
+        override fun onStop(utteranceId: String?, interrupted: Boolean) = notifyUtteranceFinished()
     }
 
     private companion object {

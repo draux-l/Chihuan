@@ -56,6 +56,8 @@ fun PanelScreen(
     onOpenOnboarding: () -> Unit,
     modifier: Modifier = Modifier,
     showRestrictedSettingsGuidance: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU,
+    showDebugActions: Boolean = false,
+    onSimulatePayment: () -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -97,6 +99,34 @@ fun PanelScreen(
         ) {
             Text(stringResource(R.string.panel_open_onboarding))
         }
+
+        if (showDebugActions) {
+            DebugSection(onSimulatePayment = onSimulatePayment)
+        }
+    }
+}
+
+/**
+ * Debug-only shortcut into the real pipeline.
+ *
+ * The action does not call the speech engine: it publishes a sample notification to the same entry
+ * point a posted notification uses, so filtering, parsing, composition and queueing are all
+ * exercised. The host shows this section only when the APK is debuggable.
+ */
+@Composable
+private fun DebugSection(onSimulatePayment: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(
+            onClick = onSimulatePayment,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.panel_debug_simulate_payment))
+        }
+        Text(
+            text = stringResource(R.string.panel_debug_explanation),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

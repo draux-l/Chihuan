@@ -2,6 +2,7 @@ package pe.chihuan.app.data.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import pe.chihuan.app.core.model.ContentSelection
 import pe.chihuan.app.core.source.SourceId
 import pe.chihuan.app.core.source.SourceRegistry
 
@@ -32,6 +33,18 @@ object SettingsContract {
 
     /** One armed key per registry source, e.g. `source_armed_yape`. */
     fun sourceArmedKey(sourceId: SourceId): String = "source_armed_${sourceId.key}"
+
+    /** Whether the amount is spoken. Defaults to spoken, because silence hides a payment. */
+    const val KEY_SAY_AMOUNT = "say_amount"
+
+    /** Whether the payer name is spoken. */
+    const val KEY_SAY_NAME = "say_name"
+
+    /** Whether the security code is spoken. */
+    const val KEY_SAY_CODE = "say_code"
+
+    /** Default for the three content toggles: a fresh install speaks every group. */
+    const val DEFAULT_SAY_FIELD = true
 }
 
 /** Immutable read of the stored configuration at one moment. */
@@ -39,9 +52,20 @@ data class SettingsSnapshot(
     /** Sources the user has left armed. */
     val armedSourceIds: Set<SourceId>,
     /** True once notification access was observed as granted on this install. */
-    val notificationAccessWasGranted: Boolean,
+    val notificationAccessWasGranted: Boolean = SettingsContract.DEFAULT_NOTIFICATION_ACCESS_WAS_GRANTED,
+    /** Stored content toggles; the composer is the only consumer. */
+    val sayAmount: Boolean = SettingsContract.DEFAULT_SAY_FIELD,
+    val sayName: Boolean = SettingsContract.DEFAULT_SAY_FIELD,
+    val sayCode: Boolean = SettingsContract.DEFAULT_SAY_FIELD,
 ) {
     fun isArmed(sourceId: SourceId): Boolean = sourceId in armedSourceIds
+
+    /** The spoken-field selection this configuration asks for. */
+    fun contentSelection(): ContentSelection = ContentSelection(
+        sayAmount = sayAmount,
+        sayName = sayName,
+        sayCode = sayCode,
+    )
 }
 
 /**
@@ -71,6 +95,18 @@ class AppSettings(context: Context) {
         notificationAccessWasGranted = readBoolean(
             SettingsContract.KEY_NOTIFICATION_ACCESS_WAS_GRANTED,
             SettingsContract.DEFAULT_NOTIFICATION_ACCESS_WAS_GRANTED,
+        ),
+        sayAmount = readBoolean(
+            SettingsContract.KEY_SAY_AMOUNT,
+            SettingsContract.DEFAULT_SAY_FIELD,
+        ),
+        sayName = readBoolean(
+            SettingsContract.KEY_SAY_NAME,
+            SettingsContract.DEFAULT_SAY_FIELD,
+        ),
+        sayCode = readBoolean(
+            SettingsContract.KEY_SAY_CODE,
+            SettingsContract.DEFAULT_SAY_FIELD,
         ),
     )
 

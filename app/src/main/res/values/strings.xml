@@ -51,6 +51,10 @@
     <string name="voice_status_missing_language_data">Faltan los datos de voz en español. Instálalos en Ajustes → Idiomas → Salida de texto a voz.</string>
     <string name="voice_test_hint">La prueba de voz funciona aunque el acceso a notificaciones no esté concedido.</string>
 
+    <!-- Debug-only pipeline check -->
+    <string name="panel_debug_simulate_payment">Simular pago de prueba (solo debug)</string>
+    <string name="panel_debug_explanation">Envía una notificación de ejemplo por el mismo recorrido que un pago real: filtro, análisis, composición y voz.</string>
+
     <!-- Android 13+ guidance -->
     <string name="restricted_settings_title">Android 13 o superior</string>
     <string name="restricted_settings_explanation">Si instalaste la app desde un APK, Android puede mantener bloqueado el acceso a notificaciones hasta que permitas los ajustes restringidos. Ruta: Ajustes → Aplicaciones → Chihuan → menú de tres puntos → Permitir ajustes restringidos.</string>
