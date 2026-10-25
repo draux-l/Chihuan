@@ -1,3 +1,23 @@
 <resources>
     <string name="app_name">Chihuan</string>
+
+    <!-- Notification access state -->
+    <string name="access_granted_title">Acceso a notificaciones: concedido</string>
+    <string name="access_granted_explanation">Chihuan puede leer las notificaciones de Yape y Plin para anunciar los pagos.</string>
+    <string name="access_denied_title">Acceso a notificaciones: no concedido</string>
+    <string name="access_denied_explanation">Los pagos no se pueden escuchar hasta que concedas el acceso a las notificaciones.</string>
+    <string name="access_open_settings">Abrir ajustes de acceso a notificaciones</string>
+
+    <!-- Voice -->
+    <string name="voice_test_action">Probar voz</string>
+    <string name="voice_status_initializing">Motor de voz: inicializando…</string>
+    <string name="voice_status_ready">Motor de voz: listo (%1$s)</string>
+    <string name="voice_status_engine_unavailable">Motor de voz no disponible. Instala o activa un motor de texto a voz en el sistema.</string>
+    <string name="voice_status_no_spanish_voice">Motor de voz no disponible: el dispositivo no tiene una voz en español instalada.</string>
+    <string name="voice_status_missing_language_data">Faltan los datos de voz en español. Instálalos en Ajustes → Idiomas → Salida de texto a voz.</string>
+    <string name="voice_test_hint">La prueba de voz funciona aunque el acceso a notificaciones no esté concedido.</string>
+
+    <!-- Android 13+ guidance -->
+    <string name="restricted_settings_title">Android 13 o superior</string>
+    <string name="restricted_settings_explanation">Si instalaste la app desde un APK, Android puede mantener bloqueado el acceso a notificaciones hasta que permitas los ajustes restringidos. Ruta: Ajustes → Aplicaciones → Chihuan → menú de tres puntos → Permitir ajustes restringidos.</string>
 </resources>

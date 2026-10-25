@@ -23,6 +23,22 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+            Notification access listener. The system binds this service on its own; the
+            BIND_NOTIFICATION_LISTENER_SERVICE permission keeps every other caller out, so the
+            service stays non-exported as the platform documentation specifies.
+            No POST_NOTIFICATIONS: this app posts no notifications of its own.
+        -->
+        <service
+            android:name=".listener.ChihuanNotificationListener"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>
