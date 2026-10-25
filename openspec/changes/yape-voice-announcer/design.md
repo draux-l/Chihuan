@@ -32,12 +32,12 @@ Two properties this pipeline exists to guarantee, both taken from the specs:
 
 ## 2. Package layout and dependency direction (Decision 1)
 
-All code lives in the single `:app` module under `com.example.notisyape`. No multi-module split: the registry/parser boundary is enforced by package convention and review, not by Gradle. That is a deliberate v1 tradeoff (ADR-1).
+All code lives in the single `:app` module under `pe.chihuan.app`. No multi-module split: the registry/parser boundary is enforced by package convention and review, not by Gradle. That is a deliberate v1 tradeoff (ADR-1).
 
 ```
-com.example.notisyape
+pe.chihuan.app
 ├── MainActivity.kt                 panel shell (replaces template greeting); screen switch, no nav library
-├── NotisYapeApplication.kt         owns all singletons (manual wiring, no DI framework)
+├── ChihuanApplication.kt         owns all singletons (manual wiring, no DI framework)
 ├── core/                           PURE KOTLIN — zero android.* imports; JVM-testable
 │   ├── model/                      ParseOutcome, PipelineOutcome, ExtractedText, QueueItem, SettingsSnapshot, ContentSelection
 │   ├── parser/                     PaymentParser (dispatch), PatternSet, YapePatternSet, InterbankPatternSet,
@@ -136,7 +136,7 @@ The amount regex captures at most 9 integer digits (S/ 10 M ceiling); anything l
 
 ## 6. Who owns the speech queue (Decision 4)
 
-**One announcer instance, Application-scoped.** `NotisYapeApplication` lazily constructs `SpeechAnnouncer` (which owns the single `TextToSpeech` instance) and exposes it to both the listener service and the UI. It therefore survives Activity destruction trivially and is shared by `Probar voz` and real payments — no binding ceremony between the panel and the listener service (ADR-4). It does *not* survive process death; the system rebinds the listener service after process death, `Application.onCreate` rebuilds the announcer, and queued-but-unspeechen items are lost — an accepted consequence, consistent with the in-memory dedupe stance (§8).
+**One announcer instance, Application-scoped.** `ChihuanApplication` lazily constructs `SpeechAnnouncer` (which owns the single `TextToSpeech` instance) and exposes it to both the listener service and the UI. It therefore survives Activity destruction trivially and is shared by `Probar voz` and real payments — no binding ceremony between the panel and the listener service (ADR-4). It does *not* survive process death; the system rebinds the listener service after process death, `Application.onCreate` rebuilds the announcer, and queued-but-unspeechen items are lost — an accepted consequence, consistent with the in-memory dedupe stance (§8).
 
 **Concurrency primitive, stated precisely: a single-consumer coroutine actor.**
 
@@ -162,7 +162,7 @@ The actor runs on main-immediate because all its non-TTS work is trivial and it 
 
 `NotisNotificationListenerService` is thin by construction: `onListenerConnected` updates a process-wide connection holder; `onNotificationPosted` hands the `StatusBarNotification` to `listener/PaymentPipeline` inside a per-notification try/catch (one bad notification must never kill the service); `onListenerDisconnected` (API 31+ only — guarded) downgrades the connection state.
 
-- **Reaching announcer and repository**: both are singletons owned by `NotisYapeApplication`; the service resolves them via `context.applicationContext as NotisYapeApplication`. No DI, no static state, no binding.
+- **Reaching announcer and repository**: both are singletons owned by `ChihuanApplication`; the service resolves them via `context.applicationContext as ChihuanApplication`. No DI, no static state, no binding.
 - **Process restart**: when the process dies, the system rebinds the listener (notification access still granted) on the next relevant notification; `Application.onCreate` rebuilds every singleton; the Room database opens lazily on first use; the connection holder starts disconnected until `onListenerConnected` fires again.
 - **Rebind**: on rebind, the pipeline resumes identically; nothing persistent needs refreshing because armed flags and settings are read fresh per notification (§9, §11) — a rebind never changes behavior.
 - **Deduplication key** (deliberately in-memory, per the spec's own assumption): `packageName | notificationId | tag-or-empty | SHA-256(extracted canonical text)`. Same identity+text → suppressed (no utterance, no row). Same id, different text → new notification, announced. Retention: entries kept ≥ 10 minutes (evicted lazily by insertion timestamp on each insert) with a hard cap of 512 entries evicting oldest-first as a memory bound; the cap exceeds the 10-minute minimum in any realistic payment cadence.
@@ -263,7 +263,7 @@ PanelState(
 
 - **Composition of the state**: sources/armed come from `SettingsStore` (re-read on refresh); history rows and total come from the Room `Flow`s collected into the panel state (so the panel updates live while open); access/battery/connection/TTS are read at refresh time and on foreground return (`ON_RESUME` hook calls `PanelViewModel.refresh()` via a `LifecycleEventObserver` — satisfying every "re-read on return to foreground" requirement in one mechanism); voice state comes from `VoiceCatalog` live at picker-open time and at refresh.
 - **Writes**: every control writes through `SettingsStore` (validated by `SettingsPolicy`) and then triggers a refresh — the ViewModel never holds a divergent copy, which is what makes "toggle and stored state never disagree" structural. `Probar voz` calls the announcer's sample path (same composer, ignores enable/threshold per spec, applies rate and content selection, enqueues rather than interrupts).
-- The panel is the entry screen; it hosts the four sections (sources, voice, history, settings) and surfaces every blocking state (§9). MainActivity keeps `NotisYapeTheme` and `setContent`; the template greeting is deleted.
+- The panel is the entry screen; it hosts the four sections (sources, voice, history, settings) and surfaces every blocking state (§9). MainActivity keeps `ChihuanTheme` and `setContent`; the template greeting is deleted.
 
 ## 13. Fixture capture / calibration mode (Decision 11)
 
@@ -341,7 +341,7 @@ The proposal's 6-slice forecast maps onto concrete files; each slice is independ
 
 1. **Slice 1 — Parsing core (pure)**: `core/model/Models.kt`; `core/parser/TextNormalizer.kt`, `AmountParser.kt`, `NameParser.kt`, `CodeParser.kt`, `PatternSet.kt`, `YapePatternSet.kt`, `PaymentParser.kt`; `core/amount/NumberToWords.kt`; `core/text/NotificationTextExtractor.kt`; `core/registry/SourceRegistry.kt`; tests `NumberToWordsTest`, `AmountParserTest`, `NameParserTest`, `CodeParserTest`, `YapeFixtureTest`, `NotificationTextExtractorTest`, `SourceRegistryTest`; fixtures `app/src/test/resources/fixtures/yape/*` (captured). ~750 lines.
 2. **Slice 2 — Composition + second source**: `core/announce/AnnouncementComposer.kt`; `core/parser/InterbankPatternSet.kt`; fixtures `fixtures/interbank/placeholder-*`; tests `AnnouncementComposerTest`, `InterbankPlaceholderFixtureTest`. ~390 lines.
-3. **Slice 3 — Speech layer + listener**: `NotisYapeApplication.kt` (manual wiring); `core/queue/QueueOrderingEngine.kt` + `QueueOrderingEngineTest`; `core/dedup/DuplicateSuppressor.kt` + test; `core/filter/PackageFilter.kt` + test; `speech/SpeechAnnouncer.kt`, `speech/AudioPolicy.kt`, `speech/VoiceCatalog.kt`, `core/speech/VoiceSelection.kt` + `VoiceSelectionTest`; `listener/NotisNotificationListenerService.kt`, `listener/NotificationReader.kt`, `listener/PaymentPipeline.kt`; `DebugCaptureSink`/`NoCaptureSink`; manifest change. ~340 lines.
+3. **Slice 3 — Speech layer + listener**: `ChihuanApplication.kt` (manual wiring); `core/queue/QueueOrderingEngine.kt` + `QueueOrderingEngineTest`; `core/dedup/DuplicateSuppressor.kt` + test; `core/filter/PackageFilter.kt` + test; `speech/SpeechAnnouncer.kt`, `speech/AudioPolicy.kt`, `speech/VoiceCatalog.kt`, `core/speech/VoiceSelection.kt` + `VoiceSelectionTest`; `listener/NotisNotificationListenerService.kt`, `listener/NotificationReader.kt`, `listener/PaymentPipeline.kt`; `DebugCaptureSink`/`NoCaptureSink`; manifest change. ~340 lines.
 4. **Slice 4 — History persistence**: build additions (§3); `data/history/PaymentEntity.kt`, `PaymentDao.kt`, `AppDatabase.kt`, `HistoryWriter.kt`, `TodayWindow.kt` + `TodayWindowTest`; Room instrumented smoke test. ~230 lines.
 5. **Slice 5 — Settings + voice picker**: `data/settings/SettingsStore.kt`, `SettingsPolicy.kt` + `SettingsPolicyTest`; `ui/voice/VoicePicker.kt`, `ui/settings/SettingsSection.kt`; strings. ~350 lines.
 6. **Slice 6 — Control panel**: `MainActivity.kt` (template greeting removed); `ui/panel/PanelScreen.kt`, `PanelViewModel.kt`, `PanelState.kt`; `ui/history/HistorySection.kt` + céntimos formatter; `permission/PermissionStateSource.kt`; `ui/onboarding/OnboardingScreen.kt`; Compose smoke test. ~570 lines.

@@ -1,4 +1,4 @@
-package com.example.notisyape.ui.theme
+package pe.chihuan.app.ui.theme
 
 import android.app.Activity
 import android.os.Build
@@ -34,7 +34,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun NotisYapeTheme(
+fun ChihuanTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,

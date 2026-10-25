@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.notisyape"
+    namespace = "pe.chihuan.app"
     compileSdk {
         version = release(37) {
             minorApiLevel = 1
@@ -12,7 +12,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.notisyape"
+        applicationId = "pe.chihuan.app"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

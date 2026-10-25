@@ -2,7 +2,7 @@
 
 ## Purpose
 
-NotisYape is a local-only Android app that listens to payment notifications, parses the
+Chihuan is a local-only Android app that listens to payment notifications, parses the
 payment amount, payer name, and security code, and reads them aloud using the platform
 `TextToSpeech` engine. No backend, no cloud sync, no LLM-based parsing, no ads.
 
@@ -33,7 +33,7 @@ Detected from `settings.gradle.kts`, `build.gradle.kts`, `app/build.gradle.kts`,
 | UI toolkit | Jetpack Compose, Compose BOM 2026.02.01, Material3 |
 | View binding | Not used |
 | Modules | Single `:app` module |
-| Root project name | `notisYape` |
+| Root project name | `Chihuan` |
 
 ## Project Conventions
 
@@ -41,10 +41,10 @@ Conventions are the unmodified Android Studio Compose template defaults. No proj
 conventions have been established yet.
 
 - Kotlin style: `kotlin.code.style=official` (`gradle.properties`).
-- Packages: `com.example.notisyape` at the root, UI theme split into `ui.theme`.
+- Packages: `pe.chihuan.app` at the root, UI theme split into `ui.theme`.
 - 4-space indentation, trailing commas in multi-line argument lists.
 - UI is Compose-only; `ComponentActivity` + `setContent` + `MaterialTheme` wrapper.
-- Theme entry point is `NotisYapeTheme` in `ui/theme/Theme.kt`, with dynamic color on API 31+.
+- Theme entry point is `ChihuanTheme` in `ui/theme/Theme.kt`, with dynamic color on API 31+.
 - Previews live next to the composable they preview (`@Preview` on `GreetingPreview`).
 - Dependencies are declared in `gradle/libs.versions.toml` and consumed via `libs.*` accessors;
   no inline version strings inside `app/build.gradle.kts`.

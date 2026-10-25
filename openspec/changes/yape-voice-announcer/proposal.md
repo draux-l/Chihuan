@@ -1,6 +1,6 @@
 # Change: yape-voice-announcer
 
-Proposal for NotisYape v1. Status: proposed, not yet specced.
+Proposal for Chihuan v1. Status: proposed, not yet specced.
 
 **Baseline this proposal is written against (verified from files, not assumed):**
 Kotlin 2.2.10, AGP 9.3.3, Gradle 9.5.0, Compose BOM 2026.02.01 (Material3), single `:app` module,
@@ -19,7 +19,7 @@ bodegueros, market sellers — cannot look at their phone at the moment it lands
 weighing, or serving the next customer. Their options today: stop everything to check the screen,
 take the customer's word for it, or miss the payment entirely.
 
-NotisYape closes that gap by speaking every payment out loud — who paid, how much, and the
+Chihuan closes that gap by speaking every payment out loud — who paid, how much, and the
 confirmation code — hands-free and eyes-free, entirely on-device. The user hears something like
 "seis soles con cincuenta" seconds after the payment and keeps working.
 
@@ -152,7 +152,7 @@ Affected capabilities (spec deltas are authored in the spec phase; this proposal
   amount, voice selection, and missing-voice fallback.
 
 Code areas: `AndroidManifest.xml` (service + permission), new registry / parser / speech /
-listener / history / UI code under `com.example.notisyape`, replacement of the template greeting
+listener / history / UI code under `pe.chihuan.app`, replacement of the template greeting
 in `MainActivity.kt`, new string resources, and the build files for Room plus its annotation
 processor. **Build-file changes are required by this proposal** — Room runtime, Room KTX, and the
 KSP plugin must be declared in `gradle/libs.versions.toml` and `app/build.gradle.kts`. Nothing

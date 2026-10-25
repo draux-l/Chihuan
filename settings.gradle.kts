@@ -22,6 +22,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "notisYape"
+rootProject.name = "Chihuan"
 include(":app")
  

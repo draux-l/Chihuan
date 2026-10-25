@@ -1,4 +1,4 @@
-package com.example.notisyape.ui.theme
+package pe.chihuan.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

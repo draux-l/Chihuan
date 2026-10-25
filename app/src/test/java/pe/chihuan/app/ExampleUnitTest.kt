@@ -1,4 +1,4 @@
-package com.example.notisyape
+package pe.chihuan.app
 
 import org.junit.Test
 
